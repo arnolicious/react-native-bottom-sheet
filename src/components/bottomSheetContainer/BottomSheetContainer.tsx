@@ -1,15 +1,17 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react'
 import {
   type LayoutChangeEvent,
+  Platform,
   StatusBar,
   type StyleProp,
   View,
   type ViewStyle,
-} from 'react-native';
-import { WINDOW_HEIGHT } from '../../constants';
-import { print } from '../../utilities';
-import { styles } from './styles';
-import type { BottomSheetContainerProps } from './types';
+} from 'react-native'
+import { WINDOW_HEIGHT } from '../../constants'
+import { print } from '../../utilities'
+import { styles } from './styles'
+import type { BottomSheetContainerProps } from './types'
+import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated'
 
 function BottomSheetContainerComponent({
   containerHeight,
@@ -21,20 +23,32 @@ function BottomSheetContainerComponent({
   style,
   children,
 }: BottomSheetContainerProps) {
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<Animated.View>(null)
+
+  const animatedKeyboard = useAnimatedKeyboard({
+    isNavigationBarTranslucentAndroid: true,
+    isStatusBarTranslucentAndroid: true,
+  })
+
+  const animatedBottom = useAnimatedStyle(() => ({
+    bottom:
+      Platform.OS === 'android'
+        ? animatedKeyboard.height.value + bottomInset
+        : bottomInset,
+  }))
   //#region styles
   const containerStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
+      animatedBottom,
       style,
       styles.container,
       {
         top: topInset,
-        bottom: bottomInset,
         overflow: detached ? 'visible' : 'hidden',
       },
     ],
-    [style, detached, topInset, bottomInset]
-  );
+    [style, detached, topInset, bottomInset, animatedBottom]
+  )
   //#endregion
 
   //#region callbacks
@@ -44,25 +58,22 @@ function BottomSheetContainerComponent({
         layout: { height },
       },
     }: LayoutChangeEvent) {
-      containerHeight.value = height;
+      containerHeight.value = height
 
-      containerRef.current?.measure(
-        (_x, _y, _width, _height, _pageX, pageY) => {
-          if (!containerOffset.value) {
-            return;
-          }
-          containerOffset.value = {
-            top: pageY ?? 0,
-            left: 0,
-            right: 0,
-            bottom: Math.max(
-              0,
-              WINDOW_HEIGHT -
-                ((pageY ?? 0) + height + (StatusBar.currentHeight ?? 0))
-            ),
-          };
+      containerRef.current?.measure((_x, _y, _width, _height, _pageX, pageY) => {
+        if (!containerOffset.value) {
+          return
         }
-      );
+        containerOffset.value = {
+          top: pageY ?? 0,
+          left: 0,
+          right: 0,
+          bottom: Math.max(
+            0,
+            WINDOW_HEIGHT - ((pageY ?? 0) + height + (StatusBar.currentHeight ?? 0))
+          ),
+        }
+      })
 
       print({
         component: BottomSheetContainer.displayName,
@@ -71,27 +82,27 @@ function BottomSheetContainerComponent({
         params: {
           height,
         },
-      });
+      })
     },
     [containerHeight, containerOffset]
-  );
+  )
   //#endregion
 
   //#region render
   return (
-    <View
+    <Animated.View
       ref={containerRef}
       pointerEvents="box-none"
       onLayout={shouldCalculateHeight ? handleContainerLayout : undefined}
       style={containerStyle}
     >
       {children}
-    </View>
-  );
+    </Animated.View>
+  )
   //#endregion
 }
 
-const BottomSheetContainer = memo(BottomSheetContainerComponent);
-BottomSheetContainer.displayName = 'BottomSheetContainer';
+const BottomSheetContainer = memo(BottomSheetContainerComponent)
+BottomSheetContainer.displayName = 'BottomSheetContainer'
 
-export default BottomSheetContainer;
+export default BottomSheetContainer
